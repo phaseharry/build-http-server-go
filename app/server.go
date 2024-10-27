@@ -6,20 +6,32 @@ import (
 	"os"
 )
 
+type serverInfo struct {
+	host        string
+	port        string
+	httpVersion string
+}
+
 func main() {
 	// You can use print statements as follows for debugging, they'll be visible when running tests.
-	fmt.Println("Logs from your program will appear here!")
+	serverInfo := serverInfo{
+		host:        "0.0.0.0",
+		port:        "4221",
+		httpVersion: "1.1",
+	}
 
 	// Uncomment this block to pass the first stage
-	l, err := net.Listen("tcp", "0.0.0.0:4221")
+	l, err := net.Listen("tcp", fmt.Sprintf("%s:%s", serverInfo.host, serverInfo.port))
 	if err != nil {
-		fmt.Println("Failed to bind to port 4221")
+		fmt.Printf("Failed to bind to port %s", serverInfo.port)
 		os.Exit(1)
 	}
 
-	_, err = l.Accept()
+	// reading only one connection and returning an http 200
+	connection, err := l.Accept()
 	if err != nil {
 		fmt.Println("Error accepting connection: ", err.Error())
 		os.Exit(1)
 	}
+	connection.Write([]byte("HTTP/" + serverInfo.httpVersion + " 200 OK\r\n\r\n"))
 }
