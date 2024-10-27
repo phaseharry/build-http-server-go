@@ -47,7 +47,7 @@ func main() {
 			fmt.Printf("info: %v\n", val)
 		}
 
-		requestLine, _, _, userAgentString := requestInfo[0], requestInfo[1], requestInfo[2], requestInfo[3]
+		requestLine, _, userAgentString, _ := requestInfo[0], requestInfo[1], requestInfo[2], requestInfo[3]
 		requestLineValues := strings.Split(requestLine, " ")
 		method, path, httpVersion := requestLineValues[0], requestLineValues[1], requestLineValues[2]
 		fmt.Printf("userAgentString: %v\n", userAgentString)
