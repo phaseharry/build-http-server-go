@@ -8,20 +8,17 @@ import (
 	"strings"
 )
 
-type serverInfo struct {
+var serverInfo = struct {
 	host        string
 	port        string
 	httpVersion string
+}{
+	host:        "0.0.0.0",
+	port:        "4221",
+	httpVersion: "1.1",
 }
 
 func main() {
-	// You can use print statements as follows for debugging, they'll be visible when running tests.
-	serverInfo := serverInfo{
-		host:        "0.0.0.0",
-		port:        "4221",
-		httpVersion: "1.1",
-	}
-
 	// Uncomment this block to pass the first stage
 	l, err := net.Listen("tcp", fmt.Sprintf("%s:%s", serverInfo.host, serverInfo.port))
 	if err != nil {
@@ -30,44 +27,50 @@ func main() {
 	}
 
 	for {
-		connection, err := l.Accept()
+		conn, err := l.Accept()
 		if err != nil {
 			fmt.Println("Error accepting connection: ", err.Error())
 			os.Exit(1)
 		}
-
-		request := make([]byte, 1024)
-		_, err = connection.Read(request)
-		if err != nil {
-			fmt.Println("Error reading connection request: ", err.Error())
-			os.Exit(1)
-		}
-		requestInfo := strings.Split(string(request), "\r\n")
-		for _, val := range requestInfo {
-			fmt.Printf("info: %v\n", val)
-		}
-
-		requestLine, _, userAgentString, _ := requestInfo[0], requestInfo[1], requestInfo[2], requestInfo[3]
-		requestLineValues := strings.Split(requestLine, " ")
-		method, path, httpVersion := requestLineValues[0], requestLineValues[1], requestLineValues[2]
-		fmt.Printf("userAgentString: %v\n", userAgentString)
-		fmt.Printf("method: %v, path: %v, httpVersion: %v\n", method, path, httpVersion)
-		switch {
-		case method == "GET" && path == "/":
-			connection.Write([]byte("HTTP/" + serverInfo.httpVersion + " 200 OK\r\n\r\n"))
-		case method == "GET" && strings.HasPrefix(path, "/echo"):
-			pathValues := strings.Split(path, "/")
-			responseValue := pathValues[len(pathValues)-1]
-			responseSize := strconv.Itoa(len(responseValue))
-			connection.Write([]byte("HTTP/" + serverInfo.httpVersion + " 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + responseSize + "\r\n\r\n" + responseValue))
-		case method == "GET" && strings.HasPrefix(path, "/user-agent"):
-			userAgentValues := strings.Split(userAgentString, " ")
-			fmt.Printf("%v", userAgentValues)
-			userAgent := userAgentValues[len(userAgentValues)-1]
-			responseSize := strconv.Itoa(len(userAgent))
-			connection.Write([]byte("HTTP/" + serverInfo.httpVersion + " 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + responseSize + "\r\n\r\n" + userAgent))
-		default:
-			connection.Write([]byte("HTTP/" + serverInfo.httpVersion + " 404 Not Found\r\n\r\n"))
-		}
+		go handleConnection(conn)
 	}
+}
+
+func handleConnection(conn net.Conn) error {
+	defer conn.Close()
+
+	request := make([]byte, 1024)
+	_, err := conn.Read(request)
+	if err != nil {
+		fmt.Println("Error reading connection request: ", err.Error())
+		return err
+	}
+	requestInfo := strings.Split(string(request), "\r\n")
+	for _, val := range requestInfo {
+		fmt.Printf("info: %v\n", val)
+	}
+
+	requestLine, _, userAgentString, _ := requestInfo[0], requestInfo[1], requestInfo[2], requestInfo[3]
+	requestLineValues := strings.Split(requestLine, " ")
+	method, path, httpVersion := requestLineValues[0], requestLineValues[1], requestLineValues[2]
+	fmt.Printf("userAgentString: %v\n", userAgentString)
+	fmt.Printf("method: %v, path: %v, httpVersion: %v\n", method, path, httpVersion)
+	switch {
+	case method == "GET" && path == "/":
+		conn.Write([]byte("HTTP/" + serverInfo.httpVersion + " 200 OK\r\n\r\n"))
+	case method == "GET" && strings.HasPrefix(path, "/echo"):
+		pathValues := strings.Split(path, "/")
+		responseValue := pathValues[len(pathValues)-1]
+		responseSize := strconv.Itoa(len(responseValue))
+		conn.Write([]byte("HTTP/" + serverInfo.httpVersion + " 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + responseSize + "\r\n\r\n" + responseValue))
+	case method == "GET" && strings.HasPrefix(path, "/user-agent"):
+		userAgentValues := strings.Split(userAgentString, " ")
+		fmt.Printf("%v", userAgentValues)
+		userAgent := userAgentValues[len(userAgentValues)-1]
+		responseSize := strconv.Itoa(len(userAgent))
+		conn.Write([]byte("HTTP/" + serverInfo.httpVersion + " 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + responseSize + "\r\n\r\n" + userAgent))
+	default:
+		conn.Write([]byte("HTTP/" + serverInfo.httpVersion + " 404 Not Found\r\n\r\n"))
+	}
+	return nil
 }
