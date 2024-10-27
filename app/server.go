@@ -43,20 +43,29 @@ func main() {
 			os.Exit(1)
 		}
 		requestInfo := strings.Split(string(request), "\r\n")
+		for _, val := range requestInfo {
+			fmt.Printf("info: %v\n", val)
+		}
 
-		requestLine := requestInfo[0]
+		requestLine, _, _, userAgentString := requestInfo[0], requestInfo[1], requestInfo[2], requestInfo[3]
 		requestLineValues := strings.Split(requestLine, " ")
 		method, path, httpVersion := requestLineValues[0], requestLineValues[1], requestLineValues[2]
-
-		fmt.Printf("method: %v, path: %v, httpVersion: %v", method, path, httpVersion)
+		fmt.Printf("userAgentString: %v\n", userAgentString)
+		fmt.Printf("method: %v, path: %v, httpVersion: %v\n", method, path, httpVersion)
 		switch {
 		case method == "GET" && path == "/":
 			connection.Write([]byte("HTTP/" + serverInfo.httpVersion + " 200 OK\r\n\r\n"))
-		case method == "GET" && strings.HasPrefix(path, "/echo/"):
+		case method == "GET" && strings.HasPrefix(path, "/echo"):
 			pathValues := strings.Split(path, "/")
 			responseValue := pathValues[len(pathValues)-1]
 			responseSize := strconv.Itoa(len(responseValue))
 			connection.Write([]byte("HTTP/" + serverInfo.httpVersion + " 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + responseSize + "\r\n\r\n" + responseValue))
+		case method == "GET" && strings.HasPrefix(path, "/user-agent"):
+			userAgentValues := strings.Split(userAgentString, " ")
+			fmt.Printf("%v", userAgentValues)
+			userAgent := userAgentValues[len(userAgentValues)-1]
+			responseSize := strconv.Itoa(len(userAgent))
+			connection.Write([]byte("HTTP/" + serverInfo.httpVersion + " 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + responseSize + "\r\n\r\n" + userAgent))
 		default:
 			connection.Write([]byte("HTTP/" + serverInfo.httpVersion + " 404 Not Found\r\n\r\n"))
 		}
