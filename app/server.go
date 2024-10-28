@@ -25,7 +25,7 @@ func main() {
 		fmt.Printf("Failed to bind to port %s", serverInfo.port)
 		os.Exit(1)
 	}
-
+	fmt.Printf("%v", os.Args)
 	for {
 		conn, err := l.Accept()
 		if err != nil {
@@ -59,8 +59,7 @@ func handleConnection(conn net.Conn) error {
 	case method == "GET" && path == "/":
 		conn.Write([]byte("HTTP/" + serverInfo.httpVersion + " 200 OK\r\n\r\n"))
 	case method == "GET" && strings.HasPrefix(path, "/echo"):
-		pathValues := strings.Split(path, "/")
-		responseValue := pathValues[len(pathValues)-1]
+		responseValue := strings.TrimPrefix(path, "/")
 		responseSize := strconv.Itoa(len(responseValue))
 		conn.Write([]byte("HTTP/" + serverInfo.httpVersion + " 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + responseSize + "\r\n\r\n" + responseValue))
 	case method == "GET" && strings.HasPrefix(path, "/user-agent"):
@@ -69,6 +68,17 @@ func handleConnection(conn net.Conn) error {
 		userAgent := userAgentValues[len(userAgentValues)-1]
 		responseSize := strconv.Itoa(len(userAgent))
 		conn.Write([]byte("HTTP/" + serverInfo.httpVersion + " 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + responseSize + "\r\n\r\n" + userAgent))
+	case method == "GET" && strings.HasPrefix(path, "/files"):
+		// reading filepath and sending its content back to client
+		filename := strings.TrimPrefix(path, "/files")
+		directory := os.Args[2]
+		file, err := os.ReadFile(directory + filename)
+		if err != nil {
+			conn.Write([]byte("HTTP/" + serverInfo.httpVersion + " 404 Not Found\r\n\r\n"))
+			return nil
+		}
+		responseSize := strconv.Itoa(len(file))
+		conn.Write([]byte("HTTP/" + serverInfo.httpVersion + " 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: " + responseSize + "\r\n\r\n" + string(file)))
 	default:
 		conn.Write([]byte("HTTP/" + serverInfo.httpVersion + " 404 Not Found\r\n\r\n"))
 	}
