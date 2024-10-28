@@ -59,7 +59,8 @@ func handleConnection(conn net.Conn) error {
 	case method == "GET" && path == "/":
 		conn.Write([]byte("HTTP/" + serverInfo.httpVersion + " 200 OK\r\n\r\n"))
 	case method == "GET" && strings.HasPrefix(path, "/echo"):
-		responseValue := strings.TrimPrefix(path, "/")
+		responseValue := strings.TrimPrefix(path, "/echo/")
+		fmt.Printf("echo response value: %v", responseValue)
 		responseSize := strconv.Itoa(len(responseValue))
 		conn.Write([]byte("HTTP/" + serverInfo.httpVersion + " 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + responseSize + "\r\n\r\n" + responseValue))
 	case method == "GET" && strings.HasPrefix(path, "/user-agent"):
