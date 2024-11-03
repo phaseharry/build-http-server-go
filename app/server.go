@@ -1,10 +1,11 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"fmt"
 	"net"
 	"os"
-	"slices"
 	"strconv"
 	"strings"
 )
@@ -73,13 +74,9 @@ func handleConnection(conn net.Conn) error {
 
 	case method == "GET" && strings.HasPrefix(path, "/echo"):
 		responseValue := strings.TrimPrefix(path, "/echo/")
-		responseSize := strconv.Itoa(len(responseValue))
 
-		handleEncoding(headers, &httpResponse)
+		handleEncoding(headers["Accept-Encoding"], responseValue, &httpResponse)
 		httpResponse.SetStatus(&OK)
-		httpResponse.AppendHeader("Content-Type", "text/plain")
-		httpResponse.AppendHeader("Content-Length", responseSize)
-		httpResponse.SetBody(responseValue)
 		fmt.Printf("response: %v\n", string(httpResponse.ToString()))
 		conn.Write(httpResponse.ToString())
 
@@ -134,14 +131,33 @@ func handleConnection(conn net.Conn) error {
 	return nil
 }
 
-func handleEncoding(requestHeaders map[string]string, httpResponse *HttpResponse) {
-	encodings := strings.Split(requestHeaders["Accept-Encoding"], ", ")
+func handleEncoding(encodingsHeaderStr string, content string, httpResponse *HttpResponse) {
+	encodings := strings.Split(encodingsHeaderStr, ", ")
 	fmt.Printf("encodings: %v\n", encodings)
+	encodedResponse := false
 	for _, encoding := range encodings {
 		fmt.Printf("encoding Val: %v\n", encoding)
-		if slices.Contains(SUPPORTED_COMPRESSIONS, encoding) {
+		// only support GZIP for now
+		if encoding == GZIP {
+			encodedResponse = true
+			var buffer bytes.Buffer
+			gzipWriter := gzip.NewWriter(&buffer)
+			gzipWriter.Write([]byte(content))
+			gzipWriter.Close()
+
+			compressedContent := buffer.String()
 			httpResponse.AppendHeader("Content-Encoding", encoding)
+			httpResponse.AppendHeader("Content-Type", "text/plain")
+			httpResponse.AppendHeader("Content-Length", strconv.Itoa(len(compressedContent)))
+			httpResponse.SetBody(compressedContent)
 			break
 		}
+	}
+
+	// if no encoding was done then set response as regular content
+	if !encodedResponse {
+		httpResponse.AppendHeader("Content-Type", "text/plain")
+		httpResponse.AppendHeader("Content-Length", strconv.Itoa(len(content)))
+		httpResponse.SetBody(content)
 	}
 }
