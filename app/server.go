@@ -4,9 +4,17 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 )
+
+const (
+	CRLF = "\r\n"
+	GZIP = "gzip"
+)
+
+var SUPPORTED_COMPRESSIONS = []string{GZIP}
 
 var serverInfo = struct {
 	host        string
@@ -24,7 +32,7 @@ func main() {
 		fmt.Printf("Failed to bind to port %s", serverInfo.port)
 		os.Exit(1)
 	}
-	fmt.Printf("%v", os.Args)
+
 	for {
 		conn, err := l.Accept()
 		if err != nil {
@@ -38,38 +46,52 @@ func main() {
 func handleConnection(conn net.Conn) error {
 	defer conn.Close()
 
-	buffer := make([]byte, 1024)
-
-	_, err := conn.Read(buffer)
+	httpRequest, err := parseRequest(conn)
 	if err != nil {
-		fmt.Println("Error reading connection request: ", err.Error())
 		return err
 	}
-	request := strings.Split(string(buffer), "\r\n")
 
-	// for _, val := range request {
-	// 	fmt.Printf("info: %v\n", val)
-	// }
+	method := httpRequest.Method
+	path := httpRequest.Target
+	headers := httpRequest.Headers
 
-	requestLine, userAgentString := request[0], request[2]
-	requestLineValues := strings.Split(requestLine, " ")
-	method, path, httpVersion := requestLineValues[0], requestLineValues[1], requestLineValues[2]
-	fmt.Printf("method: %v, path: %v, httpVersion: %v\n", method, path, httpVersion)
-
+	httpResponse := HttpResponse{
+		Headers: map[string]string{},
+	}
 	switch {
 	case method == "GET" && path == "/":
-		conn.Write([]byte("HTTP/" + serverInfo.httpVersion + " 200 OK\r\n\r\n"))
+		httpResponse.SetStatus(&OK)
+
+		fmt.Printf("response: %v\n", string(httpResponse.ToString()))
+
+		conn.Write(httpResponse.ToString())
 
 	case method == "GET" && strings.HasPrefix(path, "/echo"):
 		responseValue := strings.TrimPrefix(path, "/echo/")
 		responseSize := strconv.Itoa(len(responseValue))
-		conn.Write([]byte("HTTP/" + serverInfo.httpVersion + " 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + responseSize + "\r\n\r\n" + responseValue))
+
+		encoding := headers["Accept-Encoding"]
+
+		httpResponse.SetStatus(&OK)
+		if encoding != "" && slices.Contains(SUPPORTED_COMPRESSIONS, encoding) {
+			httpResponse.AppendHeader("Content-Encoding", headers["Accept-Encoding"])
+		}
+		httpResponse.AppendHeader("Content-Type", "text/plain")
+		httpResponse.AppendHeader("Content-Length", responseSize)
+		httpResponse.SetBody(responseValue)
+		fmt.Printf("response: %v\n", string(httpResponse.ToString()))
+		conn.Write(httpResponse.ToString())
 
 	case method == "GET" && strings.HasPrefix(path, "/user-agent"):
-		userAgentValues := strings.Split(userAgentString, " ")
-		userAgent := userAgentValues[len(userAgentValues)-1]
+		userAgent := headers["User-Agent"]
 		responseSize := strconv.Itoa(len(userAgent))
-		conn.Write([]byte("HTTP/" + serverInfo.httpVersion + " 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + responseSize + "\r\n\r\n" + userAgent))
+
+		httpResponse.SetStatus(&OK)
+		httpResponse.AppendHeader("Content-Type", "text/plain")
+		httpResponse.AppendHeader("Content-Length", responseSize)
+		httpResponse.SetBody(userAgent)
+		fmt.Printf("response: %v\n", string(httpResponse.ToString()))
+		conn.Write(httpResponse.ToString())
 
 	case method == "GET" && strings.HasPrefix(path, "/files"):
 		// reading filepath and sending its content back to client
@@ -77,24 +99,89 @@ func handleConnection(conn net.Conn) error {
 		directory := os.Args[2]
 		file, err := os.ReadFile(directory + filename)
 		if err != nil {
-			conn.Write([]byte("HTTP/" + serverInfo.httpVersion + " 404 Not Found\r\n\r\n"))
+			httpResponse.SetStatus(&NOT_FOUND)
+			conn.Write(httpResponse.ToString())
 			return nil
 		}
 		responseSize := strconv.Itoa(len(file))
-		conn.Write([]byte("HTTP/" + serverInfo.httpVersion + " 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: " + responseSize + "\r\n\r\n" + string(file)))
+
+		httpResponse.SetStatus(&OK)
+		httpResponse.AppendHeader("Content-Type", "application/octet-stream")
+		httpResponse.AppendHeader("Content-Length", responseSize)
+		httpResponse.SetBody(string(file))
+
+		fmt.Printf("response: %v\n", string(httpResponse.ToString()))
+		conn.Write(httpResponse.ToString())
 
 	case method == "POST" && strings.HasPrefix(path, "/files"):
 		filename := strings.TrimPrefix(path, "/files")
 		directory := os.Args[2]
-		requestBody := request[len(request)-1] // body is always the last part of a request
+		requestBody := httpRequest.Body
 		if err := os.WriteFile(directory+filename, []byte(strings.Trim(requestBody, "\x00")), 0644); err != nil {
-			conn.Write([]byte("HTTP/" + serverInfo.httpVersion + " 500 Error\r\n\r\n"))
+			httpResponse.SetStatus(&INTERNAL)
+			conn.Write(httpResponse.ToString())
 			break
 		}
-		conn.Write([]byte("HTTP/" + serverInfo.httpVersion + " 201 Created\r\n\r\n"))
+		httpResponse.SetStatus(&CREATED)
+		fmt.Printf("response: %v\n", string(httpResponse.ToString()))
+		conn.Write(httpResponse.ToString())
 
 	default:
-		conn.Write([]byte("HTTP/" + serverInfo.httpVersion + " 404 Not Found\r\n\r\n"))
+		httpResponse.SetStatus(&NOT_FOUND)
+		conn.Write(httpResponse.ToString())
 	}
 	return nil
+}
+
+func parseRequest(connection net.Conn) (HttpRequest, error) {
+	buffer := make([]byte, 1024)
+
+	httpRequest := HttpRequest{}
+
+	_, err := connection.Read(buffer)
+	if err != nil {
+		fmt.Println("Error reading connection request: ", err.Error())
+		return httpRequest, err
+	}
+	request := strings.Split(string(buffer), CRLF)
+	fmt.Printf("request len: %v", len(request))
+	for _, val := range request {
+		fmt.Printf("info: %v\n", val)
+	}
+
+	requestLine := request[0]
+	requestLineValues := strings.Split(requestLine, " ")
+	fmt.Printf("requestLineValues: %v, len: %v\n", requestLineValues, len(requestLineValues))
+	if len(requestLineValues) != 3 {
+		return httpRequest, fmt.Errorf("invalid request line")
+	}
+	httpRequest.Method = requestLineValues[0]
+	httpRequest.Target = requestLineValues[1]
+	httpRequest.HttpVersion = requestLineValues[2]
+	fmt.Printf("method: %v, path: %v, httpVersion: %v\n", httpRequest.Method, httpRequest.Target, httpRequest.HttpVersion)
+
+	i := 1
+	prevLineEmptyString := false
+
+	headers := make(map[string]string)
+	for i < len(request) {
+		headerLine := request[i]
+		fmt.Printf("headerLine: %v\n", headerLine)
+		i++
+		// if prevLine was an empty string then this line is the request body
+		if prevLineEmptyString {
+			httpRequest.Body = headerLine
+			continue
+		}
+		if headerLine == "" {
+			prevLineEmptyString = true
+			continue
+		}
+		headerLineValues := strings.Split(headerLine, ": ")
+		key, value := headerLineValues[0], headerLineValues[1]
+		headers[key] = value
+	}
+	httpRequest.Headers = headers
+	fmt.Printf("request: %v\n", httpRequest)
+	return httpRequest, nil
 }
