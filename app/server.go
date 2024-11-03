@@ -46,7 +46,15 @@ func main() {
 func handleConnection(conn net.Conn) error {
 	defer conn.Close()
 
-	httpRequest, err := parseRequest(conn)
+	buffer := make([]byte, 1024)
+	_, err := conn.Read(buffer)
+
+	if err != nil {
+		fmt.Println("Error reading connection request: ", err.Error())
+		return err
+	}
+
+	httpRequest, err := NewHttpRequest(buffer)
 	if err != nil {
 		return err
 	}
@@ -131,57 +139,4 @@ func handleConnection(conn net.Conn) error {
 		conn.Write(httpResponse.ToString())
 	}
 	return nil
-}
-
-func parseRequest(connection net.Conn) (HttpRequest, error) {
-	buffer := make([]byte, 1024)
-
-	httpRequest := HttpRequest{}
-
-	_, err := connection.Read(buffer)
-	if err != nil {
-		fmt.Println("Error reading connection request: ", err.Error())
-		return httpRequest, err
-	}
-	request := strings.Split(string(buffer), CRLF)
-	fmt.Printf("request len: %v", len(request))
-	for _, val := range request {
-		fmt.Printf("info: %v\n", val)
-	}
-
-	requestLine := request[0]
-	requestLineValues := strings.Split(requestLine, " ")
-	fmt.Printf("requestLineValues: %v, len: %v\n", requestLineValues, len(requestLineValues))
-	if len(requestLineValues) != 3 {
-		return httpRequest, fmt.Errorf("invalid request line")
-	}
-	httpRequest.Method = requestLineValues[0]
-	httpRequest.Target = requestLineValues[1]
-	httpRequest.HttpVersion = requestLineValues[2]
-	fmt.Printf("method: %v, path: %v, httpVersion: %v\n", httpRequest.Method, httpRequest.Target, httpRequest.HttpVersion)
-
-	i := 1
-	prevLineEmptyString := false
-
-	headers := make(map[string]string)
-	for i < len(request) {
-		headerLine := request[i]
-		fmt.Printf("headerLine: %v\n", headerLine)
-		i++
-		// if prevLine was an empty string then this line is the request body
-		if prevLineEmptyString {
-			httpRequest.Body = headerLine
-			continue
-		}
-		if headerLine == "" {
-			prevLineEmptyString = true
-			continue
-		}
-		headerLineValues := strings.Split(headerLine, ": ")
-		key, value := headerLineValues[0], headerLineValues[1]
-		headers[key] = value
-	}
-	httpRequest.Headers = headers
-	fmt.Printf("request: %v\n", httpRequest)
-	return httpRequest, nil
 }
