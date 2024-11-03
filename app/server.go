@@ -69,26 +69,24 @@ func handleConnection(conn net.Conn) error {
 	}
 	switch {
 	case method == "GET" && path == "/":
-		httpResponse.SetStatus(&OK)
+		httpResponse.SetStatus(OK)
 		conn.Write(httpResponse.ToString())
 
 	case method == "GET" && strings.HasPrefix(path, "/echo"):
 		responseValue := strings.TrimPrefix(path, "/echo/")
 
 		handleEncoding(headers["Accept-Encoding"], responseValue, &httpResponse)
-		httpResponse.SetStatus(&OK)
-		fmt.Printf("response: %v\n", string(httpResponse.ToString()))
+		httpResponse.SetStatus(OK)
 		conn.Write(httpResponse.ToString())
 
 	case method == "GET" && strings.HasPrefix(path, "/user-agent"):
 		userAgent := headers["User-Agent"]
 		responseSize := strconv.Itoa(len(userAgent))
 
-		httpResponse.SetStatus(&OK)
+		httpResponse.SetStatus(OK)
 		httpResponse.AppendHeader("Content-Type", "text/plain")
 		httpResponse.AppendHeader("Content-Length", responseSize)
 		httpResponse.SetBody(userAgent)
-		fmt.Printf("response: %v\n", string(httpResponse.ToString()))
 		conn.Write(httpResponse.ToString())
 
 	case method == "GET" && strings.HasPrefix(path, "/files"):
@@ -97,18 +95,17 @@ func handleConnection(conn net.Conn) error {
 		directory := os.Args[2]
 		file, err := os.ReadFile(directory + filename)
 		if err != nil {
-			httpResponse.SetStatus(&NOT_FOUND)
+			httpResponse.SetStatus(NOT_FOUND)
 			conn.Write(httpResponse.ToString())
 			return nil
 		}
 		responseSize := strconv.Itoa(len(file))
 
-		httpResponse.SetStatus(&OK)
+		httpResponse.SetStatus(OK)
 		httpResponse.AppendHeader("Content-Type", "application/octet-stream")
 		httpResponse.AppendHeader("Content-Length", responseSize)
 		httpResponse.SetBody(string(file))
 
-		fmt.Printf("response: %v\n", string(httpResponse.ToString()))
 		conn.Write(httpResponse.ToString())
 
 	case method == "POST" && strings.HasPrefix(path, "/files"):
@@ -116,16 +113,15 @@ func handleConnection(conn net.Conn) error {
 		directory := os.Args[2]
 		requestBody := httpRequest.Body
 		if err := os.WriteFile(directory+filename, []byte(strings.Trim(requestBody, "\x00")), 0644); err != nil {
-			httpResponse.SetStatus(&INTERNAL)
+			httpResponse.SetStatus(INTERNAL)
 			conn.Write(httpResponse.ToString())
 			break
 		}
-		httpResponse.SetStatus(&CREATED)
-		fmt.Printf("response: %v\n", string(httpResponse.ToString()))
+		httpResponse.SetStatus(CREATED)
 		conn.Write(httpResponse.ToString())
 
 	default:
-		httpResponse.SetStatus(&NOT_FOUND)
+		httpResponse.SetStatus(NOT_FOUND)
 		conn.Write(httpResponse.ToString())
 	}
 	return nil
@@ -133,7 +129,6 @@ func handleConnection(conn net.Conn) error {
 
 func handleEncoding(encodingsHeaderStr string, content string, httpResponse *HttpResponse) {
 	encodings := strings.Split(encodingsHeaderStr, ", ")
-	fmt.Printf("encodings: %v\n", encodings)
 	encodedResponse := false
 	for _, encoding := range encodings {
 		fmt.Printf("encoding Val: %v\n", encoding)

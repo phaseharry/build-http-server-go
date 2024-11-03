@@ -30,16 +30,17 @@ var (
 )
 
 type HttpResponse struct {
-	Status  *HttpStatus
+	Status  HttpStatus
 	Headers map[string]string
 	Body    string
 }
 
 func (httpResponse *HttpResponse) ToString() []byte {
-	if httpResponse.Status == nil {
+	// if a http status was not set, response with 500 internal server error
+	if httpResponse.Status.code == 0 || httpResponse.Status.message == "" {
 		log.Println("http response missing status")
 		// if missing status, set as internal server error and send that as response
-		httpResponse.Status = &INTERNAL
+		httpResponse.Status = INTERNAL
 		return []byte(
 			fmt.Sprintf("HTTP/%v %v %v%v", serverInfo.httpVersion, httpResponse.Status.code, httpResponse.Status.message, CRLF),
 		)
@@ -63,7 +64,7 @@ func (httpResponse *HttpResponse) ToString() []byte {
 	return response
 }
 
-func (httpResponse *HttpResponse) SetStatus(httpStatus *HttpStatus) {
+func (httpResponse *HttpResponse) SetStatus(httpStatus HttpStatus) {
 	httpResponse.Status = httpStatus
 }
 

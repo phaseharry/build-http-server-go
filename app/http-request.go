@@ -16,10 +16,6 @@ type HttpRequest struct {
 func NewHttpRequest(buffer []byte) (*HttpRequest, error) {
 	httpRequest := HttpRequest{}
 	request := strings.Split(string(buffer), CRLF)
-	fmt.Printf("request len: %v", len(request))
-	for _, val := range request {
-		fmt.Printf("info: %v\n", val)
-	}
 
 	requestLine := request[0]
 	parseRequestLine(&httpRequest, requestLine)
@@ -30,7 +26,7 @@ func NewHttpRequest(buffer []byte) (*HttpRequest, error) {
 	headers := make(map[string]string)
 	for i < len(request) {
 		headerLine := request[i]
-		fmt.Printf("headerLine: %v\n", headerLine)
+		// fmt.Printf("headerLine: %v\n", headerLine)
 		i++
 		// if prevLine was an empty string then this line is the request body
 		if prevLineEmptyString {
@@ -46,13 +42,13 @@ func NewHttpRequest(buffer []byte) (*HttpRequest, error) {
 		headers[key] = value
 	}
 	httpRequest.Headers = headers
-	fmt.Printf("request: %v\n", httpRequest)
+	// fmt.Printf("request: %v\n", httpRequest)
 	return &httpRequest, nil
 }
 
 func parseRequestLine(httpRequest *HttpRequest, requestLine string) error {
 	requestLineValues := strings.Split(requestLine, " ")
-	fmt.Printf("requestLineValues: %v, len: %v\n", requestLineValues, len(requestLineValues))
+	// fmt.Printf("requestLineValues: %v, len: %v\n", requestLineValues, len(requestLineValues))
 	if len(requestLineValues) != 3 {
 		return fmt.Errorf("invalid request line")
 	}
