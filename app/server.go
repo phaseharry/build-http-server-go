@@ -69,21 +69,14 @@ func handleConnection(conn net.Conn) error {
 	switch {
 	case method == "GET" && path == "/":
 		httpResponse.SetStatus(&OK)
-
-		fmt.Printf("response: %v\n", string(httpResponse.ToString()))
-
 		conn.Write(httpResponse.ToString())
 
 	case method == "GET" && strings.HasPrefix(path, "/echo"):
 		responseValue := strings.TrimPrefix(path, "/echo/")
 		responseSize := strconv.Itoa(len(responseValue))
 
-		encoding := headers["Accept-Encoding"]
-
+		handleEncoding(headers, &httpResponse)
 		httpResponse.SetStatus(&OK)
-		if encoding != "" && slices.Contains(SUPPORTED_COMPRESSIONS, encoding) {
-			httpResponse.AppendHeader("Content-Encoding", headers["Accept-Encoding"])
-		}
 		httpResponse.AppendHeader("Content-Type", "text/plain")
 		httpResponse.AppendHeader("Content-Length", responseSize)
 		httpResponse.SetBody(responseValue)
@@ -139,4 +132,16 @@ func handleConnection(conn net.Conn) error {
 		conn.Write(httpResponse.ToString())
 	}
 	return nil
+}
+
+func handleEncoding(requestHeaders map[string]string, httpResponse *HttpResponse) {
+	encodings := strings.Split(requestHeaders["Accept-Encoding"], ", ")
+	fmt.Printf("encodings: %v\n", encodings)
+	for _, encoding := range encodings {
+		fmt.Printf("encoding Val: %v\n", encoding)
+		if slices.Contains(SUPPORTED_COMPRESSIONS, encoding) {
+			httpResponse.AppendHeader("Content-Encoding", encoding)
+			break
+		}
+	}
 }
