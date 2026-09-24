@@ -6,8 +6,8 @@ import (
 )
 
 type HttpResponse struct {
-	StatusCode StatusCode
-	Body       string
+	Status Status
+	Body   string
 }
 
 func (h *HttpResponse) ToBytes() []byte {
@@ -19,10 +19,10 @@ func (h *HttpResponse) ToBytes() []byte {
 	// appending empty byte for a space
 	b = append(b, ' ')
 	// appending status code
-	b = append(b, strconv.Itoa(h.StatusCode.Code)...)
+	b = append(b, strconv.Itoa(h.Status.Code)...)
 	b = append(b, ' ')
 	// appending status code phase (OK, UNAUTHORIZED, etc.)
-	b = append(b, h.StatusCode.Phrase...)
+	b = append(b, h.Status.Phrase...)
 
 	// Header information
 	b = append(b, CRLF...)

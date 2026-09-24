@@ -18,10 +18,30 @@ func main() {
 		fmt.Println("Error accepting connection: ", err.Error())
 		os.Exit(1)
 	}
+	requestBytes := make([]byte, 1024)
+	conn.Read(requestBytes)
 
-	response := HttpResponse{
-		StatusCode: StatusCodeOk,
+	request, err := NewRequest(requestBytes)
+	if err != nil {
+		badRequestResponse := HttpResponse{
+			Status: StatusNotFound,
+		}
+		conn.Write(badRequestResponse.ToBytes())
+		return
 	}
+	fmt.Println(request)
+
+	var response HttpResponse
+	if request.RequestLine.Target != "/" {
+		response = HttpResponse{
+			Status: StatusNotFound,
+		}
+	} else {
+		response = HttpResponse{
+			Status: StatusOk,
+		}
+	}
+
 	if _, err := conn.Write(response.ToBytes()); err != nil {
 		fmt.Println(err.Error())
 	}
