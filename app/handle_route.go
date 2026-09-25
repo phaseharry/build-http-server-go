@@ -1,6 +1,11 @@
 package main
 
-import "strings"
+import (
+	"errors"
+	"os"
+	"path"
+	"strings"
+)
 
 func handleRoute(request HttpRequest) HttpResponse {
 	var response HttpResponse
@@ -15,6 +20,27 @@ func handleRoute(request HttpRequest) HttpResponse {
 			Status:      StatusOk,
 			Body:        toEcho,
 			ContentType: contentTypePlainText,
+		}
+	} else if strings.HasPrefix(request.RequestLine.Target, "/files/") {
+		filename := strings.Split(request.RequestLine.Target, "/files/")[1]
+		filepath := path.Join(directory, filename)
+		data, err := os.ReadFile(filepath)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				response = HttpResponse{
+					Status: StatusNotFound,
+				}
+			} else {
+				response = HttpResponse{
+					Status: StatusInternalServerError,
+				}
+			}
+		} else { // success case
+			response = HttpResponse{
+				Status:      StatusOk,
+				Body:        string(data),
+				ContentType: contentTypeApplicationOctectStream,
+			}
 		}
 	} else if request.RequestLine.Target == "/user-agent" {
 		response = HttpResponse{

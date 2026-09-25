@@ -10,5 +10,6 @@ const (
 type ContentType string
 
 const (
-	contentTypePlainText ContentType = "text/plain"
+	contentTypePlainText               ContentType = "text/plain"
+	contentTypeApplicationOctectStream ContentType = "application/octet-stream"
 )
