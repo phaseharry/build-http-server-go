@@ -1,6 +1,9 @@
 package main
 
-import "bytes"
+import (
+	"bytes"
+	"fmt"
+)
 
 type HttpRequest struct {
 	RequestLine requestLine
@@ -18,6 +21,7 @@ func NewRequest(req []byte) (HttpRequest, error) {
 	httpRequest := HttpRequest{}
 	requestParts := bytes.Split(req, []byte(CRLF))
 
+	// the first CRLF is always the request line
 	requestLineParts := bytes.Split(requestParts[0], []byte(" "))
 	if len(requestLineParts) != 3 {
 		return httpRequest, ErrInvalidRequest
@@ -31,6 +35,23 @@ func NewRequest(req []byte) (HttpRequest, error) {
 	}
 
 	httpRequest.RequestLine = reqLine
+
+	// every header entry get its own CRLF
+	headers := make(map[string]string)
+	for i := 1; i < len(requestParts)-1; i++ {
+		headerEntry := requestParts[i]
+		// bytes.Cut returns the first occurrance of the seperator bytes and returns 3 values.
+		// left of the seperator, right of the seperator,
+		// bool of whether a seperator even exists or not
+		key, value, found := bytes.Cut(headerEntry, []byte(": "))
+		if !found {
+			continue
+		}
+		headers[string(key)] = string(value)
+	}
+	fmt.Println(headers)
+	httpRequest.Headers = headers
+	// the entry after the last CRLF is the request body if it exists
 
 	return httpRequest, nil
 }

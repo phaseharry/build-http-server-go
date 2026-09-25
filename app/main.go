@@ -44,6 +44,12 @@ func main() {
 			Body:        toEcho,
 			ContentType: contentTypePlainText,
 		}
+	} else if request.RequestLine.Target == "/user-agent" {
+		response = HttpResponse{
+			Status:      StatusOk,
+			Body:        request.Headers["User-Agent"],
+			ContentType: contentTypePlainText,
+		}
 	} else {
 		response = HttpResponse{
 			Status: StatusNotFound,
