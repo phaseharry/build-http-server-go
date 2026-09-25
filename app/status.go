@@ -19,3 +19,8 @@ var StatusNotFound = Status{
 	Code:   404,
 	Phrase: "Not Found",
 }
+
+var StatusInternalServerError = Status{
+	Code:   500,
+	Phrase: "Internal Server Error",
+}
