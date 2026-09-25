@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"path"
 	"strconv"
@@ -11,6 +10,7 @@ import (
 
 func handleRoute(request HttpRequest) HttpResponse {
 	var response HttpResponse
+	responseHeaders := make(map[string]string)
 
 	if request.RequestLine.Target == "/" && request.RequestLine.Method == GET {
 		response = HttpResponse{
@@ -18,16 +18,16 @@ func handleRoute(request HttpRequest) HttpResponse {
 		}
 	} else if strings.HasPrefix(request.RequestLine.Target, "/echo/") && request.RequestLine.Method == GET {
 		toEcho := strings.Split(request.RequestLine.Target, "/echo/")[1]
+		responseHeaders[headerContentType] = contentTypePlainText
 		response = HttpResponse{
-			Status:      StatusOk,
-			Body:        toEcho,
-			ContentType: contentTypePlainText,
+			Status:  StatusOk,
+			Body:    toEcho,
+			Headers: responseHeaders,
 		}
 	} else if strings.HasPrefix(request.RequestLine.Target, "/files/") && request.RequestLine.Method == GET {
 		filename := strings.Split(request.RequestLine.Target, "/files/")[1]
 		filepath := path.Join(directory, filename)
 		data, err := os.ReadFile(filepath)
-		fmt.Println("hello")
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
 				response = HttpResponse{
@@ -39,10 +39,11 @@ func handleRoute(request HttpRequest) HttpResponse {
 				}
 			}
 		} else { // success case
+			responseHeaders[headerContentType] = contentTypeApplicationOctectStream
 			response = HttpResponse{
-				Status:      StatusOk,
-				Body:        string(data),
-				ContentType: contentTypeApplicationOctectStream,
+				Status:  StatusOk,
+				Headers: responseHeaders,
+				Body:    string(data),
 			}
 		}
 	} else if strings.HasPrefix(request.RequestLine.Target, "/files/") && request.RequestLine.Method == POST {
@@ -52,7 +53,7 @@ func handleRoute(request HttpRequest) HttpResponse {
 		data := request.Body
 		// if content-length was not sent as part of the request, write the entire body including
 		// the empty bytes availalble due to HttpRequest's 1024 byte buffer.
-		contentLength, ok := request.Headers[string(headerContentLength)]
+		contentLength, ok := request.Headers[headerContentLength]
 		if ok {
 			size, err := strconv.Atoi(contentLength)
 			if err == nil {
@@ -70,14 +71,30 @@ func handleRoute(request HttpRequest) HttpResponse {
 			}
 		}
 	} else if request.RequestLine.Target == "/user-agent" && request.RequestLine.Method == GET {
+		responseHeaders[headerContentType] = contentTypePlainText
 		response = HttpResponse{
-			Status:      StatusOk,
-			Body:        request.Headers["User-Agent"],
-			ContentType: contentTypePlainText,
+			Status:  StatusOk,
+			Body:    request.Headers["User-Agent"],
+			Headers: responseHeaders,
 		}
 	} else {
 		response = HttpResponse{
 			Status: StatusNotFound,
+		}
+	}
+
+	if encoding, ok := request.Headers[requestHeaderAcceptEncoding]; ok {
+		encoded, err := encode(encoding, []byte(response.Body))
+		// if there's an error with encoding with a supported encoding format, send an internal server response.
+		// if there's an error because client sent an unsupported encoding format, just send back the raw response with no encoding.
+		// if encoding is supported and it encoded successfully, send back the encoding response
+		if err != nil && !errors.Is(err, ErrInvalidEncodingFormat) {
+			response = HttpResponse{
+				Status: StatusInternalServerError,
+			}
+		} else if err == nil { // successfully encoded so use the encoded data
+			response.Body = string(encoded)
+			response.Headers[responseContentEncoding] = encoding
 		}
 	}
 

@@ -1,15 +1,24 @@
 package main
 
-type Header string
-
+// common headers shared by both Request and Response
 const (
-	headerContentType   Header = "Content-Type"
-	headerContentLength Header = "Content-Length"
+	headerContentType   = "Content-Type"
+	headerContentLength = "Content-Length"
 )
 
-type ContentType string
-
+// request headers
 const (
-	contentTypePlainText               ContentType = "text/plain"
-	contentTypeApplicationOctectStream ContentType = "application/octet-stream"
+	requestHeaderAccept         = "Accept"
+	requestHeaderAcceptEncoding = "Accept-Encoding"
+)
+
+// response headers
+const (
+	responseContentEncoding = "Content-Encoding"
+)
+
+// Content-Type
+const (
+	contentTypePlainText               = "text/plain"
+	contentTypeApplicationOctectStream = "application/octet-stream"
 )

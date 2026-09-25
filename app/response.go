@@ -6,20 +6,20 @@ import (
 )
 
 type HttpResponse struct {
-	Status      Status
-	ContentType ContentType
-	Body        string
+	Status  Status
+	Headers map[string]string
+	Body    string
 }
 
 func NewHttpResponse(
 	status Status,
-	contentType ContentType,
+	headers map[string]string,
 	body string,
 ) HttpResponse {
 	return HttpResponse{
-		Status:      status,
-		ContentType: contentType,
-		Body:        body,
+		Status:  status,
+		Headers: headers,
+		Body:    body,
 	}
 }
 
@@ -40,11 +40,12 @@ func (h *HttpResponse) ToBytes() []byte {
 	responseBytes = append(responseBytes, CRLF...)
 
 	// Header information
-	if h.ContentType != "" {
-		responseBytes = append(responseBytes, fmt.Sprintf("%s: ", headerContentType)...)
-		responseBytes = append(responseBytes, []byte(h.ContentType)...)
+	for key, val := range h.Headers {
+		responseBytes = append(responseBytes, fmt.Sprintf("%s: ", key)...)
+		responseBytes = append(responseBytes, []byte(val)...)
 		responseBytes = append(responseBytes, CRLF...)
 	}
+
 	if len(body) != 0 {
 		responseBytes = append(responseBytes, fmt.Sprintf("%s: ", headerContentLength)...)
 		responseBytes = append(responseBytes, fmt.Sprintf("%d", len(body))...)
