@@ -10,6 +10,11 @@ var StatusOk = Status{
 	Phrase: "OK",
 }
 
+var StatusCreated = Status{
+	Code:   201,
+	Phrase: "Created",
+}
+
 var StatusBadRequest = Status{
 	Code:   400,
 	Phrase: "Bad Request",

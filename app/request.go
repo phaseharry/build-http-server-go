@@ -5,10 +5,15 @@ import (
 	"fmt"
 )
 
+const (
+	GET  = "GET"
+	POST = "POST"
+)
+
 type HttpRequest struct {
 	RequestLine requestLine
 	Headers     map[string]string
-	Body        string
+	Body        []byte
 }
 
 type requestLine struct {
@@ -52,6 +57,7 @@ func NewRequest(req []byte) (HttpRequest, error) {
 	fmt.Println(headers)
 	httpRequest.Headers = headers
 	// the entry after the last CRLF is the request body if it exists
+	httpRequest.Body = requestParts[len(requestParts)-1]
 
 	return httpRequest, nil
 }
