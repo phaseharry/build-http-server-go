@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 )
 
 func main() {
@@ -32,13 +33,20 @@ func main() {
 	fmt.Println(request)
 
 	var response HttpResponse
-	if request.RequestLine.Target != "/" {
+	if request.RequestLine.Target == "/" {
 		response = HttpResponse{
-			Status: StatusNotFound,
+			Status: StatusOk,
+		}
+	} else if strings.HasPrefix(request.RequestLine.Target, "/echo/") {
+		toEcho := strings.Split(request.RequestLine.Target, "/echo/")[1]
+		response = HttpResponse{
+			Status:      StatusOk,
+			Body:        toEcho,
+			ContentType: contentTypePlainText,
 		}
 	} else {
 		response = HttpResponse{
-			Status: StatusOk,
+			Status: StatusNotFound,
 		}
 	}
 

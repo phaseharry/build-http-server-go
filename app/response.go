@@ -6,28 +6,54 @@ import (
 )
 
 type HttpResponse struct {
-	Status Status
-	Body   string
+	Status      Status
+	ContentType ContentType
+	Body        string
+}
+
+func NewHttpResponse(
+	status Status,
+	contentType ContentType,
+	body string,
+) HttpResponse {
+	return HttpResponse{
+		Status:      status,
+		ContentType: contentType,
+		Body:        body,
+	}
 }
 
 func (h *HttpResponse) ToBytes() []byte {
-	var b []byte
+	var responseBytes []byte
+	body := []byte(h.Body)
 
 	// Status line information
 	// sending protocol header info
-	b = append(b, fmt.Sprintf("HTTP/%s", VERSION)...)
+	responseBytes = append(responseBytes, fmt.Sprintf("HTTP/%s", VERSION)...)
 	// appending empty byte for a space
-	b = append(b, ' ')
+	responseBytes = append(responseBytes, ' ')
 	// appending status code
-	b = append(b, strconv.Itoa(h.Status.Code)...)
-	b = append(b, ' ')
+	responseBytes = append(responseBytes, strconv.Itoa(h.Status.Code)...)
+	responseBytes = append(responseBytes, ' ')
 	// appending status code phase (OK, UNAUTHORIZED, etc.)
-	b = append(b, h.Status.Phrase...)
+	responseBytes = append(responseBytes, h.Status.Phrase...)
+	responseBytes = append(responseBytes, CRLF...)
 
 	// Header information
-	b = append(b, CRLF...)
+	if h.ContentType != "" {
+		responseBytes = append(responseBytes, fmt.Sprintf("%s: ", headerContentType)...)
+		responseBytes = append(responseBytes, []byte(h.ContentType)...)
+		responseBytes = append(responseBytes, CRLF...)
+	}
+	if len(body) != 0 {
+		responseBytes = append(responseBytes, fmt.Sprintf("%s: ", headerContentLength)...)
+		responseBytes = append(responseBytes, fmt.Sprintf("%d", len(body))...)
+		responseBytes = append(responseBytes, CRLF...)
+	}
+	responseBytes = append(responseBytes, CRLF...)
+
 	// Response Body
-	b = append(b, CRLF...)
-	fmt.Println(string(b))
-	return b
+	responseBytes = append(responseBytes, []byte(h.Body)...)
+	fmt.Println(string(responseBytes))
+	return responseBytes
 }
