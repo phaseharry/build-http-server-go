@@ -83,18 +83,20 @@ func handleRoute(request HttpRequest) HttpResponse {
 		}
 	}
 
-	if encoding, ok := request.Headers[requestHeaderAcceptEncoding]; ok {
-		encoded, err := encode(encoding, []byte(response.Body))
-		// if there's an error with encoding with a supported encoding format, send an internal server response.
-		// if there's an error because client sent an unsupported encoding format, just send back the raw response with no encoding.
-		// if encoding is supported and it encoded successfully, send back the encoding response
-		if err != nil && !errors.Is(err, ErrInvalidEncodingFormat) {
-			response = HttpResponse{
-				Status: StatusInternalServerError,
+	if acceptedEncodings, ok := request.Headers[requestHeaderAcceptEncoding]; ok {
+		encodings := strings.SplitSeq(acceptedEncodings, ",")
+		for encoding := range encodings {
+			encoding = strings.TrimSpace(encoding)
+			encoded, err := encode(encoding, []byte(response.Body))
+			// if there's an error because client sent an unsupported encoding format, try the next encoding format passed in
+			// if encoding is supported and it encoded successfully, send back the encoding response and stop testing other formats
+			if err != nil && !errors.Is(err, ErrInvalidEncodingFormat) {
+				continue
+			} else if err == nil { // successfully encoded so use the encoded data
+				response.Body = string(encoded)
+				response.Headers[responseContentEncoding] = encoding
+				break
 			}
-		} else if err == nil { // successfully encoded so use the encoded data
-			response.Body = string(encoded)
-			response.Headers[responseContentEncoding] = encoding
 		}
 	}
 
