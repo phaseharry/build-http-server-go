@@ -59,7 +59,7 @@ func handleRoute(request HttpRequest) HttpResponse {
 				data = data[:size]
 			}
 		}
-		err := os.WriteFile(filepath, request.Body, 0644)
+		err := os.WriteFile(filepath, data, 0644)
 		if err != nil {
 			response = HttpResponse{
 				Status: StatusInternalServerError,
