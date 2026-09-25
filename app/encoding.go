@@ -26,6 +26,7 @@ func encode(encoding string, data []byte) ([]byte, error) {
 		if _, err := gzipWriter.Write(data); err != nil {
 			return encodedData, errors.New("error gziping data")
 		}
+		gzipWriter.Close()
 		encodedData = buf.Bytes()
 	}
 

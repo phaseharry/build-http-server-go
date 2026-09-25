@@ -56,5 +56,6 @@ func (h *HttpResponse) ToBytes() []byte {
 	// Response Body
 	responseBytes = append(responseBytes, []byte(h.Body)...)
 	fmt.Println(string(responseBytes))
+	fmt.Println([]byte(h.Body))
 	return responseBytes
 }
