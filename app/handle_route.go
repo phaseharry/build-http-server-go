@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 )
 
@@ -47,6 +48,17 @@ func handleRoute(request HttpRequest) HttpResponse {
 	} else if strings.HasPrefix(request.RequestLine.Target, "/files/") && request.RequestLine.Method == POST {
 		filename := strings.Split(request.RequestLine.Target, "/files/")[1]
 		filepath := path.Join(directory, filename)
+
+		data := request.Body
+		// if content-length was not sent as part of the request, write the entire body including
+		// the empty bytes availalble due to HttpRequest's 1024 byte buffer.
+		contentLength, ok := request.Headers[string(headerContentLength)]
+		if ok {
+			size, err := strconv.Atoi(contentLength)
+			if err == nil {
+				data = data[:size]
+			}
+		}
 		err := os.WriteFile(filepath, request.Body, 0644)
 		if err != nil {
 			response = HttpResponse{
