@@ -15,6 +15,7 @@ func handleRoute(request HttpRequest) HttpResponse {
 	if request.RequestLine.Target == "/" && request.RequestLine.Method == GET {
 		response = HttpResponse{
 			Status: StatusOk,
+			Headers: responseHeaders,
 		}
 	} else if strings.HasPrefix(request.RequestLine.Target, "/echo/") && request.RequestLine.Method == GET {
 		toEcho := strings.Split(request.RequestLine.Target, "/echo/")[1]
@@ -32,10 +33,12 @@ func handleRoute(request HttpRequest) HttpResponse {
 			if errors.Is(err, os.ErrNotExist) {
 				response = HttpResponse{
 					Status: StatusNotFound,
+					Headers: responseHeaders,
 				}
 			} else {
 				response = HttpResponse{
 					Status: StatusInternalServerError,
+					Headers: responseHeaders,
 				}
 			}
 		} else { // success case
@@ -64,10 +67,12 @@ func handleRoute(request HttpRequest) HttpResponse {
 		if err != nil {
 			response = HttpResponse{
 				Status: StatusInternalServerError,
+				Headers: responseHeaders,
 			}
 		} else {
 			response = HttpResponse{
 				Status: StatusCreated,
+				Headers: responseHeaders,
 			}
 		}
 	} else if request.RequestLine.Target == "/user-agent" && request.RequestLine.Method == GET {
@@ -80,6 +85,7 @@ func handleRoute(request HttpRequest) HttpResponse {
 	} else {
 		response = HttpResponse{
 			Status: StatusNotFound,
+			Headers: responseHeaders,
 		}
 	}
 
