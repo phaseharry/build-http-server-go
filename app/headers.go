@@ -1,3 +1,4 @@
+
 package main
 
 // common headers shared by both Request and Response
@@ -10,11 +11,18 @@ const (
 const (
 	requestHeaderAccept         = "Accept"
 	requestHeaderAcceptEncoding = "Accept-Encoding"
+	requestHeaderConnection     = "Connection"
 )
 
 // response headers
 const (
 	responseContentEncoding = "Content-Encoding"
+)
+
+// Connection
+const (
+	connectionClose     = "close"
+	connectionKeepAlive = "keep-alive"
 )
 
 // Content-Type

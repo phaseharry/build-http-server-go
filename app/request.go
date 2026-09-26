@@ -1,8 +1,11 @@
+
 package main
 
 import (
+	"bufio"
 	"bytes"
-	"fmt"
+	"io"
+	"strconv"
 )
 
 const (
@@ -12,9 +15,11 @@ const (
 
 type HttpRequest struct {
 	RequestLine requestLine
-	Headers     map[string]string
+	Headers     headers
 	Body        []byte
 }
+
+type headers map[string]string
 
 type requestLine struct {
 	Method  string
@@ -22,27 +27,63 @@ type requestLine struct {
 	Version string
 }
 
-func NewRequest(req []byte) (HttpRequest, error) {
-	httpRequest := HttpRequest{}
-	requestParts := bytes.Split(req, []byte(CRLF))
+func NewRequest(reader *bufio.Reader) (HttpRequest, error) {
+	// request line + headers bytes only.
+	// reads until the blank line that only contains the CRLF and then looks at the incoming Content-Length header to determine if there was a body within the request so we can read those bytes in as well.
+	// that how we'll if the following bytes after the request line + header still belongs to this request or is it part of another request on the same TCP connection.
+	var head []byte
+	request := HttpRequest{}
+	for {
+		line, err := reader.ReadBytes('\n')
+		if err != nil {
+			return request, err
+		}
+		head = append(head, line...)
+		// if the line only contains the CRLF then that's the end of the request line + header bytes
+		if string(line) == CRLF {
+			break
+		}
+	}
+
+	reqLine, headers, err := parseHeadBytes(head)
+	if err != nil {
+		return request, err
+	}
+	request.RequestLine = reqLine
+	request.Headers = headers
+
+	// reading potential body to the HttpRequest using the Content-Length header value to know how many bytes to read
+	if contentLength, ok := request.Headers[headerContentLength]; ok {
+		size, err := strconv.Atoi(contentLength)
+		if err != nil || size < 0 {
+			return request, ErrInvalidRequest
+		}
+		// allocating a slice of just the right size and calling io.ReadFull to continuously
+		// read bytes into request.Body until it has filled up the slice.
+		request.Body = make([]byte, size)
+		if _, err := io.ReadFull(reader, request.Body); err != nil {
+			return request, err
+		}
+	}
+
+	return request, nil
+}
+
+func parseHeadBytes(head []byte) (requestLine, headers, error) {
+	reqLine, headers := requestLine{}, make(map[string]string)
+	requestParts := bytes.Split(head, []byte(CRLF))
 
 	// the first CRLF is always the request line
 	requestLineParts := bytes.Split(requestParts[0], []byte(" "))
 	if len(requestLineParts) != 3 {
-		return httpRequest, ErrInvalidRequest
-	}
-	method, target, version := requestLineParts[0], requestLineParts[1], requestLineParts[2]
-
-	reqLine := requestLine{
-		Method:  string(method),
-		Target:  string(target),
-		Version: string(version),
+		return reqLine, headers, ErrInvalidRequest
 	}
 
-	httpRequest.RequestLine = reqLine
+	reqLine.Method = string(requestLineParts[0])
+	reqLine.Target = string(requestLineParts[1])
+	reqLine.Version = string(requestLineParts[2])
 
 	// every header entry get its own CRLF
-	headers := make(map[string]string)
 	for i := 1; i < len(requestParts)-1; i++ {
 		headerEntry := requestParts[i]
 		// bytes.Cut returns the first occurrance of the seperator bytes and returns 3 values.
@@ -54,10 +95,6 @@ func NewRequest(req []byte) (HttpRequest, error) {
 		}
 		headers[string(key)] = string(value)
 	}
-	fmt.Println(headers)
-	httpRequest.Headers = headers
-	// the entry after the last CRLF is the request body if it exists
-	httpRequest.Body = requestParts[len(requestParts)-1]
 
-	return httpRequest, nil
+	return reqLine, headers, nil
 }
